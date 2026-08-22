@@ -3,3 +3,6 @@ pandas
 scikit-learn==1.6.1
 nltk
 joblib
+plotly
+wordcloud
+matplotlib

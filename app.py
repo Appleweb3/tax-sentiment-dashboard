@@ -3,11 +3,17 @@ import joblib
 import pandas as pd
 import re
 import nltk
+import numpy as np
+import plotly.express as px
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
-nltk.download('stopwords')
-nltk.download('wordnet')
+st.set_page_config(page_title="Tax Reform Sentiment Tracker", page_icon="🇳🇬", layout="wide")
+
+nltk.download('stopwords', quiet=True)
+nltk.download('wordnet', quiet=True)
 stop_words = set(stopwords.words('english'))
 lemmatizer = WordNetLemmatizer()
 
@@ -27,23 +33,81 @@ df = pd.read_csv("tax_reform_labeled.csv")
 df["clean_text"] = df["Text"].apply(clean_text)
 df["predicted"] = model.predict(vectorizer.transform(df["clean_text"]))
 
-st.title("Tax Reform Sentiment Dashboard")
-st.caption("Tracking public opinion on Tinubu's tax reform policy")
+if "date" not in df.columns:
+    df["date"] = pd.date_range(end=pd.Timestamp.today(), periods=len(df), freq="h")
+else:
+    df["date"] = pd.to_datetime(df["date"])
 
-counts = df["predicted"].value_counts()
-col1, col2, col3 = st.columns(3)
-col1.metric("Positive", f"{counts.get('positive',0)}")
-col2.metric("Negative", f"{counts.get('negative',0)}")
-col3.metric("Neutral", f"{counts.get('neutral',0)}")
+st.markdown("## 🇳🇬 Tax Reform Sentiment Tracker")
+st.caption("Public sentiment on Bola Ahmed Tinubu's Tax Reform Policy — Nigeria Focus")
 
-st.bar_chart(counts)
+tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Trends", "Live Analyzer", "About"])
 
-st.subheader("Try it yourself")
-user_text = st.text_input("Type a sentence about the tax reform:")
-if user_text:
-    cleaned = clean_text(user_text)
-    pred = model.predict(vectorizer.transform([cleaned]))[0]
-    st.write(f"Predicted sentiment: **{pred}**")
+with tab1:
+    col1, col2, col3 = st.columns([1.2, 1, 1])
+    counts = df["predicted"].value_counts()
+    total = len(df)
 
-st.subheader("Sample classified posts")
-st.dataframe(df[["Text", "predicted"]].head(20))
+    with col1:
+        st.markdown("**Overall Sentiment**")
+        fig = px.pie(
+            values=counts.values, names=counts.index,
+            color=counts.index,
+            color_discrete_map={"positive": "green", "negative": "red", "neutral": "grey"},
+            hole=0.4
+        )
+        fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        st.metric("Total Posts Analyzed", f"{total:,}")
+        peak_week = df.set_index("date")["predicted"].eq("negative").resample("W").mean().idxmax()
+        st.metric("Negative Sentiment Peak", peak_week.strftime("%b %Y"))
+
+    with col3:
+        neg_share = round(counts.get("negative", 0) / total * 100, 1)
+        st.metric("Negative Sentiment Share", f"{neg_share}%")
+        pos_share = round(counts.get("positive", 0) / total * 100, 1)
+        st.metric("Positive Sentiment Share", f"{pos_share}%")
+
+with tab2:
+    st.markdown("**Sentiment Trend Over Time**")
+    trend = df.groupby([pd.Grouper(key="date", freq="W"), "predicted"]).size().unstack(fill_value=0)
+    trend_pct = trend.div(trend.sum(axis=1), axis=0) * 100
+    fig2 = px.line(trend_pct, x=trend_pct.index, y=trend_pct.columns,
+                   color_discrete_map={"positive": "green", "negative": "red", "neutral": "grey"})
+    fig2.update_layout(yaxis_title="Share of Posts (%)", xaxis_title="Week", height=400)
+    st.plotly_chart(fig2, use_container_width=True)
+
+with tab3:
+    st.markdown("**Analyze a new post**")
+    user_text = st.text_area("Type or paste a post here:")
+    colA, colB = st.columns(2)
+    if colA.button("Analyze"):
+        if user_text:
+            cleaned = clean_text(user_text)
+            pred = model.predict(vectorizer.transform([cleaned]))[0]
+            color = {"positive": "green", "negative": "red", "neutral": "grey"}[pred]
+            st.markdown(f"Predicted sentiment: **:{color}[{pred.upper()}]**")
+
+    st.markdown("---")
+    st.markdown("**Word Cloud of Common Terms**")
+    all_text = " ".join(df["clean_text"])
+    if all_text.strip():
+        wc = WordCloud(width=900, height=350, background_color="white", colormap="RdYlGn").generate(all_text)
+        fig3, ax = plt.subplots(figsize=(10, 4))
+        ax.imshow(wc, interpolation="bilinear")
+        ax.axis("off")
+        st.pyplot(fig3)
+
+with tab4:
+    st.markdown("""
+    ### About this project
+    This dashboard is part of a final year project titled **"A Sentiment Analysis Model for Predicting
+    Public Opinion on President Bola Ahmed Tinubu's Tax Reform Policy Using Machine Learning Techniques."**
+
+    - **Student:** Usman Hayatudeen (KASU/22/CSC/1127)
+    - **Department:** Informatics, Faculty of Computing, Kaduna State University
+    - **Supervisor:** Mrs. Amina Isa
+    - **Model:** Support Vector Machine (SVM) trained on TF-IDF features
+    """)

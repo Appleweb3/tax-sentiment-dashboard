@@ -33,7 +33,7 @@ df["predicted"] = model.predict(vectorizer.transform(df["clean_text"]))
 
 if "date" not in df.columns:
     df["date"] = pd.date_range(end=pd.Timestamp.today(), periods=len(df), freq="h")
-    else:
+else:
     df["date"] = pd.to_datetime(df["date"], format="mixed", dayfirst=True, errors="coerce")
     df = df.dropna(subset=["date"])
 
@@ -60,8 +60,10 @@ with tab1:
 
     with col2:
         st.metric("Total Posts Analyzed", f"{total:,}")
-        peak_week = df.set_index("date")["predicted"].eq("negative").resample("W").mean().idxmax()
-        st.metric("Negative Sentiment Peak", peak_week.strftime("%b %Y"))
+        neg_by_week = df.set_index("date")["predicted"].eq("negative").resample("W").mean()
+        if len(neg_by_week) > 0:
+            peak_week = neg_by_week.idxmax()
+            st.metric("Negative Sentiment Peak", peak_week.strftime("%b %Y"))
 
     with col3:
         neg_share = round(counts.get("negative", 0) / total * 100, 1)

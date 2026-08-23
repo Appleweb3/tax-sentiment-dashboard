@@ -33,8 +33,9 @@ df["predicted"] = model.predict(vectorizer.transform(df["clean_text"]))
 
 if "date" not in df.columns:
     df["date"] = pd.date_range(end=pd.Timestamp.today(), periods=len(df), freq="h")
-else:
-    df["date"] = pd.to_datetime(df["date"])
+    else:
+    df["date"] = pd.to_datetime(df["date"], format="mixed", dayfirst=True, errors="coerce")
+    df = df.dropna(subset=["date"])
 
 st.markdown("## 🇳🇬 Tax Reform Sentiment Tracker")
 st.caption("Public sentiment on Bola Ahmed Tinubu's Tax Reform Policy — Nigeria Focus")

@@ -5,8 +5,6 @@ import re
 import nltk
 import numpy as np
 import plotly.express as px
-from wordcloud import WordCloud
-import matplotlib.pyplot as plt
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
@@ -30,7 +28,7 @@ def clean_text(text):
 model = joblib.load("sentiment_model.pkl")
 vectorizer = joblib.load("vectorizer.pkl")
 df = pd.read_csv("tax_reform_labeled.csv")
-df["clean_text"] = df["Text"].apply(clean_text)
+df["clean_text"] = df["text"].apply(clean_text)
 df["predicted"] = model.predict(vectorizer.transform(df["clean_text"]))
 
 if "date" not in df.columns:
@@ -82,23 +80,12 @@ with tab2:
 with tab3:
     st.markdown("**Analyze a new post**")
     user_text = st.text_area("Type or paste a post here:")
-    colA, colB = st.columns(2)
-    if colA.button("Analyze"):
+    if st.button("Analyze"):
         if user_text:
             cleaned = clean_text(user_text)
             pred = model.predict(vectorizer.transform([cleaned]))[0]
             color = {"positive": "green", "negative": "red", "neutral": "grey"}[pred]
             st.markdown(f"Predicted sentiment: **:{color}[{pred.upper()}]**")
-
-    st.markdown("---")
-    st.markdown("**Word Cloud of Common Terms**")
-    all_text = " ".join(df["clean_text"])
-    if all_text.strip():
-        wc = WordCloud(width=900, height=350, background_color="white", colormap="RdYlGn").generate(all_text)
-        fig3, ax = plt.subplots(figsize=(10, 4))
-        ax.imshow(wc, interpolation="bilinear")
-        ax.axis("off")
-        st.pyplot(fig3)
 
 with tab4:
     st.markdown("""
